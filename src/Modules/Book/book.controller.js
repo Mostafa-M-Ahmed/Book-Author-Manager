@@ -29,10 +29,8 @@ export const createBook = async (req, res, next) => {
 // =================================== retrieve all books ===================================
 export const getAllBooks = async (req, res) => {
     try {
-        let { filter } = req.query;
-        if (filter === null || filter === undefined) {
-            filter = '';
-        }
+        const { page = 1, limit = 10, filter = '' } = req.query;
+
         const query = {
             $or: [
                 { title: { $regex: filter, $options: 'i' } },   // case-insensitive
@@ -40,8 +38,17 @@ export const getAllBooks = async (req, res) => {
             ]
         };
 
-        const books = await Book.find(query);
-        res.json({ message: "Total number of created books " + books.length, books })
+        const books = await Book.find(query)
+            .limit(parseInt(limit))
+            .skip((parseInt(page) - 1) * parseInt(limit));
+
+        let count = await Book.countDocuments();
+        if (filter != '') {
+            count = books.length
+        }
+
+        res.json({ message: `Showing ${limit} books per page.`, books, totalBooks: count, totalPages: Math.ceil(count / limit), currentPage: parseInt(page) });
+
     } catch (error) {
         console.log(error);
         res.status(500).json({ message: 'Something went wrong while retrieving books' });
@@ -69,14 +76,14 @@ export const getBookById = async (req, res) => {
 export const updateBookById = async (req, res) => {
     try {
         const { title, content, author, publishedDate } = req.body;
-        
+
         const book = await Book.findByIdAndUpdate(
             req.params.id,
-            {title, content, author, publishedDate, $inc: { __v: 1 } },
+            { title, content, author, publishedDate, $inc: { __v: 1 } },
             { new: true, runValidators: true }
         );
 
-        if (!book) 
+        if (!book)
             return res.status(404).json({ message: 'Book not found' });
         res.json({ message: 'Book updated successfully', book });
     } catch (error) {

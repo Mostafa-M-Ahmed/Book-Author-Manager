@@ -27,10 +27,7 @@ export const createAuthor = async (req, res) => {
 // =================================== get all authors ===================================
 export const getAllAuthors = async (req, res) => {
     try {
-        let { filter } = req.query;
-        if (filter === null || filter === undefined) {
-            filter = '';
-        }
+        const { page = 1, limit = 10, filter = '' } = req.query;
 
         const query = {
             $or: [
@@ -39,8 +36,18 @@ export const getAllAuthors = async (req, res) => {
             ]
         };
 
-        const authors = await Author.find(query);
-        res.json({ message: "Total number of created authors " + authors.length, authors })
+        const authors = await Author.find(query)
+        .limit(parseInt(limit))
+        .skip((parseInt(page) - 1) * parseInt(limit));
+
+        let count = await Author.countDocuments();
+        if (filter != '') {
+            count = authors.length
+        }
+
+        res.json({ message: `Showing ${limit} authors per page.`, authors, totalAuthors: count, totalPages: Math.ceil(count / limit), currentPage: parseInt(page) });
+
+
     } catch (error) {
         console.log(error);
         res.status(500).json({ message: 'Something went wrong while retrieving authors' });
